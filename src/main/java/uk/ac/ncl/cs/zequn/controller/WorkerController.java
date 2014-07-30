@@ -3,6 +3,7 @@ package uk.ac.ncl.cs.zequn.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
@@ -51,17 +52,22 @@ public class WorkerController implements WorkerListener {
 
     @RequestMapping(value = "changeActive/{oldId}/{newId}")
     @ResponseBody
-    public void changeActive(@PathVariable int oldId,@PathVariable int newId){
+    public int changeActive(@PathVariable int oldId,@PathVariable int newId,@RequestBody LinkedList<Index> index){
         if(current == null){
             service.setActive(newId);
         }else {
             if(service.getActive() == oldId){
+                //active B
+                String url = UrlBuilder.getActiveUrl(service.getMapper().get(newId));
+                int statusB = restTemplate.postForObject(url,index,Integer.class);
+                //set stream
                 service.setActive(newId);
             }
             else {
                 throw new IllegalStateException();
             }
         }
+        return 1;
     }
 
     @RequestMapping(value = "initWorker/{slice}/{range}")

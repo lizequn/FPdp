@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="uk.ac.ncl.cs.zequn:war">
+    <output-path>$PROJECT_DIR$/target</output-path>
+    <root id="archive" name="uk.ac.ncl.cs.zequn-1.0-SNAPSHOT.war">
+      <element id="artifact" artifact-name="uk.ac.ncl.cs.zequn:war exploded" />
+    </root>
+  </artifact>
+</component>
