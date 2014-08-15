@@ -36,11 +36,7 @@ public class MapperServiceImpl implements MapperService {
         MapperServiceImpl.listener = listener;
     }
 
-    @Override
-    public void setActive(int id) {
-        activeWorker = id;
-        listener.setActive(mapper.get(id));
-    }
+
 
     @Override
     public int getActive() {

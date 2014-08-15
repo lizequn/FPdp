@@ -7,12 +7,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
+import uk.ac.ncl.cs.zequn.entity.ActiveEntity;
 import uk.ac.ncl.cs.zequn.entity.AggregationCreationEntity;
 import uk.ac.ncl.cs.zequn.entity.Index;
+import uk.ac.ncl.cs.zequn.entity.Result;
 import uk.ac.ncl.cs.zequn.service.MapperService;
 import uk.ac.ncl.cs.zequn.service.Streamer;
 import uk.ac.ncl.cs.zequn.service.UrlBuilder;
+import uk.ac.ncl.cs.zequn.service.WorkerService;
 import uk.ac.ncl.cs.zequn.service.impl.MapperServiceImpl;
+import uk.ac.ncl.cs.zequn.service.impl.WorkerServiceImpl;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -25,17 +29,20 @@ import java.util.logging.Logger;
 @Controller
 public class WorkerController implements WorkerListener {
     private static Logger logger = Logger.getLogger(WorkerController.class.getName());
-    private static int id;
+    private static int currentId;
     private static String current = null;
     private static boolean flag =false;
     private static RestTemplate restTemplate = new RestTemplate();
     public WorkerController(){
         new MapperServiceImpl().setActiveListener(this);
+
     }
     @Autowired
     private MapperService service;
     @Autowired
     private Streamer streamer;
+    @Autowired
+    private WorkerService workerService;
     @RequestMapping(value = "register/{url}")
     @ResponseBody
     public int register(@PathVariable String url){
@@ -54,14 +61,15 @@ public class WorkerController implements WorkerListener {
     @ResponseBody
     public int changeActive(@PathVariable int oldId,@PathVariable int newId,@RequestBody LinkedList<Index> index){
         if(current == null){
-            service.setActive(newId);
+            current = service.getMapper().get(newId);
+            currentId = newId;
         }else {
             if(service.getActive() == oldId){
                 //active B
                 String url = UrlBuilder.getActiveUrl(service.getMapper().get(newId));
-                int statusB = restTemplate.postForObject(url,index,Integer.class);
+                int statusB = restTemplate.postForObject(url, index, Integer.class);
                 //set stream
-                service.setActive(newId);
+                current = service.getMapper().get(newId);
             }
             else {
                 throw new IllegalStateException();
@@ -106,25 +114,66 @@ public class WorkerController implements WorkerListener {
 
     @RequestMapping(value = "startStream")
     @ResponseBody
-    public void Stream(){
+    public void startStream(){
         if(flag){
             flag = false;
         }else {
             flag = true;
-            service.setActive(0);
+            current = service.getMapper().get(0);
+            currentId = 0;
             List<String> map = service.getMapper();
-            List<Index> index = new LinkedList<Index>();
-            restTemplate.postForEntity(UrlBuilder.getActiveUrl(map.get(0)),index,null);
+            LinkedList<Index> index = new LinkedList<Index>();
+//            LinkedList<Result> results = new LinkedList<Result>();
+            ActiveEntity entity = new ActiveEntity();
+            entity.setIndex(index);
+            entity.setResult(null);
+            restTemplate.postForEntity(UrlBuilder.getActiveUrl(map.get(0)),entity,null);
+            workerService.start(service.getMapper(),this);
+            logger.info("startStream "+currentId+":"+current);
+
+            new Thread(new Td()).start();
+        }
+    }
+    private void stream(){
+        if(flag){
+            flag = false;
+            logger.info("stop stream");
+        }else {
+            flag = true;
+            logger.info("begin stream "+currentId+":"+current);
             new Thread(new Td()).start();
         }
     }
 
 
+//    @Override
+//    public void setActive(String url) {
+//        logger.info("active:"+url);
+//        current = url;
+//    }
+
     @Override
-    public void setActive(String url) {
-        logger.info("active:"+url);
-        current = url;
+    public void changeActive() throws InterruptedException {
+        logger.info("beforeChange "+currentId+":"+current);
+        String oldUrl = current;
+        String newUrl ;
+        if(currentId+1 >= service.getMapper().size()){
+            newUrl = service.getMapper().get(0);
+            currentId = 0;
+        }else {
+            newUrl = service.getMapper().get(currentId+1);
+            currentId = currentId+1;
+        }
+        String urlA = UrlBuilder.getStopActiveUrl(oldUrl);
+        String urlB = UrlBuilder.getActiveUrl(newUrl);
+        this.stream();
+        ActiveEntity entity = restTemplate.getForObject(urlA,ActiveEntity.class);
+        int re = restTemplate.postForObject(urlB,entity,Integer.class);
+        current = newUrl;
+        logger.info("afterChange "+currentId+":"+current);
+        this.stream();
     }
+
     class Td implements Runnable{
 
         @Override

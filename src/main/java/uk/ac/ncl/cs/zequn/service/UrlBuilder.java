@@ -23,4 +23,7 @@ public class UrlBuilder {
     public static String getStreamUrl(String baseUrl){
         return baseUrl+"/stream";
     }
+    public static String getStopActiveUrl(String baseUrl){
+        return baseUrl+"/stopActive";
+    }
 }

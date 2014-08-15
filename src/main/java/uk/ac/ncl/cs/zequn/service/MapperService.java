@@ -13,6 +13,6 @@ public interface MapperService {
     int register(String url);
     List<String> getMapper();
     void setActiveListener(WorkerListener listener);
-    void setActive(int id);
+//    void setActive(int id);
     int getActive();
 }
