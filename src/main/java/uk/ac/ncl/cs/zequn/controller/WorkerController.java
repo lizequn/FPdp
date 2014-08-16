@@ -27,9 +27,11 @@ import java.util.logging.Logger;
 public class WorkerController implements WorkerListener {
     private static Logger logger = Logger.getLogger(WorkerController.class.getName());
     private static int currentId;
+    private static int count = 0;
     private static String current = null;
     private static boolean flag =false;
     private static RestTemplate restTemplate = new RestTemplate();
+    private static boolean working = false;
     public WorkerController(){
         new MapperServiceImpl().setActiveListener(this);
 
@@ -49,6 +51,9 @@ public class WorkerController implements WorkerListener {
         int id = service.register("Http://"+url);
         workerService.newInstanceStatus(id);
         logger.info(id+"");
+        if(working){
+            new Thread(new initNew(url)).start();
+        }
         return id;
     }
 
@@ -82,6 +87,7 @@ public class WorkerController implements WorkerListener {
     @RequestMapping(value = "initWorker/{slice}/{range}/{agg}/{aggId}")
     @ResponseBody
     public int initWorker(@PathVariable int slice,@PathVariable int range,@PathVariable String agg,@PathVariable int aggId){
+        working = true;
         logger.info("initWorker");
         List<String> map = service.getMapper();
         //init
@@ -97,8 +103,9 @@ public class WorkerController implements WorkerListener {
             if(next>=map.size()) next = 0;
             logger.info(UrlBuilder.getInitUrl(s));
             restTemplate.getForObject(UrlBuilder.getInitUrl(s)+"/"+count+"/"+pre+"/"+next,Integer.class);
+            logger.info("right one"+UrlBuilder.getInitUrl(s)+"/"+count+"/"+pre+"/"+next);
             //set Mapper
-            restTemplate.postForObject(UrlBuilder.getMappingUrl(s),map,Integer.class);
+            restTemplate.postForObject(UrlBuilder.getMappingUrl(s), map, Integer.class);
             //set aggregation
             AggregationCreationEntity entity = new AggregationCreationEntity();
             entity.setId(0);
@@ -113,12 +120,40 @@ public class WorkerController implements WorkerListener {
         }
         return count;
     }
+    private void initWorkerSingle(int id,int slice,int range,String agg,int aggId){
+        List<String> map = service.getMapper();
+        //init
+
+
+        for(String s:map) {
+            AggregationCreationEntity entity = new AggregationCreationEntity();
+            entity.setId(id);
+            entity.setRange(range);
+            entity.setSlice(slice);
+            entity.setAggStrategy(agg);
+            entity.setAggServiceId(aggId);
+            instanceService.storeAggregation(entity);
+            restTemplate.postForEntity(UrlBuilder.getCreateAggUlr(s), entity, null);
+        }
+    }
     @RequestMapping(value = "autoInitWorker")
     @ResponseBody
     public int autoInitWorker(){
+        workerService.start(this);
+        working = true;
+        for(String s: service.getMapper()){
+            logger.info(UrlBuilder.getInitUrl(s));
+            restTemplate.getForObject(UrlBuilder.getInitUrl(s)+"/"+count+"/"+0+"/"+0,Integer.class);
+            //set Mapper
+            count++;
+            restTemplate.postForObject(UrlBuilder.getMappingUrl(s),service.getMapper(),Integer.class);
+        }
         for (int i = 0; i < 10; i++) {
-           initWorker(1000,10000,"AVG1",i);
-            initWorker(1000,10000,"AVG2",i);
+            initWorkerSingle(i,1000,10000,"AVG1",i);
+            initWorkerSingle(i+10,1000,10000,"AVG2",i);
+        }
+        for(String s:service.getMapper()){
+            restTemplate.getForObject(UrlBuilder.getStartUrl(s),Integer.class);
         }
         return 1;
     }
@@ -230,7 +265,24 @@ public class WorkerController implements WorkerListener {
         public void run() {
             while (flag) {
                 restTemplate.postForEntity(UrlBuilder.getStreamUrl(current), streamer.getTuple(), null);
+//                try {
+//                    Thread.sleep(1);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
             }
+        }
+    }
+    class initNew implements Runnable{
+        String url;
+        public initNew(String url){
+
+            this.url = url;
+        }
+        @Override
+        public void run() {
+            instanceService.resumeAggregation("Http://"+url,count++,service.getMapper());
+
         }
     }
 }

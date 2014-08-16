@@ -1,16 +1,26 @@
 package uk.ac.ncl.cs.zequn.service.impl;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import uk.ac.ncl.cs.zequn.entity.AggregationCreationEntity;
 import uk.ac.ncl.cs.zequn.service.InstanceService;
+import uk.ac.ncl.cs.zequn.service.UrlBuilder;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Created by zequnli on 16/08/2014.
  */
 @Service
 public class InstanceServiceImpl implements InstanceService {
+    private static Logger logger = Logger.getLogger(InstanceServiceImpl.class.getName());
+
     private static int number =0;
+    private static List<AggregationCreationEntity> list = new LinkedList<AggregationCreationEntity>();
     @Override
     public void createNewInstance() {
 //        number++;
@@ -39,7 +49,31 @@ public class InstanceServiceImpl implements InstanceService {
             t.printStackTrace();
         }
     }
-        public static void main(String [] args){
+
+    @Override
+    public void storeAggregation(AggregationCreationEntity entity) {
+        list.add(entity);
+    }
+
+    @Override
+    public void resumeAggregation(String url,int count,List<String> mapper) {
+        RestTemplate restTemplate = new RestTemplate();
+        System.out.println(UrlBuilder.getInitUrl(url)+"/"+count+"/"+0+"/"+0);
+        int i = restTemplate.getForObject(UrlBuilder.getInitUrl(url)+"/"+count+"/"+0+"/"+0,Integer.class);
+           System.out.println(i);
+            //set Mapper
+        for(String s:mapper){
+            restTemplate.postForObject(UrlBuilder.getMappingUrl(s),mapper,Integer.class);
+        }
+        for (AggregationCreationEntity entity:list) {
+            restTemplate.postForEntity(UrlBuilder.getCreateAggUlr(url), entity, null);
+
+        }
+        restTemplate.getForObject(UrlBuilder.getStartUrl(url),Integer.class);
+        logger.info(url+"init");
+    }
+
+    public static void main(String [] args){
             new InstanceServiceImpl().createNewInstance();
          }
     }

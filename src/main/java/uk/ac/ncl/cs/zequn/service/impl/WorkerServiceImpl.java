@@ -22,7 +22,7 @@ public class WorkerServiceImpl implements WorkerService {
     @Autowired
     private InstanceService service;
     private WorkerListener listener;
-    private List<Double> statusList = new ArrayList<Double>();
+    private static List<Double> statusList = new ArrayList<Double>();
 //
 //    class myTimerTask extends TimerTask{
 //
@@ -59,7 +59,7 @@ public class WorkerServiceImpl implements WorkerService {
             if(max<50.0){
                 service.createNewInstance();
             }else {
-                listener.changeActive(id);
+                listener.changeActive(pos);
             }
         }
     }
@@ -67,11 +67,11 @@ public class WorkerServiceImpl implements WorkerService {
     @Override
     public void updateStatus(int i, double status) {
         statusList.set(i,status);
-        try {
-            analyse(i,status);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            analyse(i,status);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
     }
 
     @Override
@@ -79,7 +79,7 @@ public class WorkerServiceImpl implements WorkerService {
         if(statusList.size() != id){
             throw new IllegalStateException();
         }
-        statusList.add(128.0);
+        statusList.add(0.0);
     }
 
 
