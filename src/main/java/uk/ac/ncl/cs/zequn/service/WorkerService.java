@@ -9,6 +9,8 @@ import java.util.List;
  * Created by zequnli on 30/07/2014.
  */
 public interface WorkerService {
-    void start(List<String> map,WorkerListener listener);
+    void start(WorkerListener listener);
+    void updateStatus(int i,double status);
+    void newInstanceStatus(int id);
     void stop();
 }

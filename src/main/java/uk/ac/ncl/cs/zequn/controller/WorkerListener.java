@@ -5,5 +5,5 @@ package uk.ac.ncl.cs.zequn.controller;
  */
 public interface WorkerListener {
 //    void setActive(String url);
-    void changeActive() throws InterruptedException;
+    void changeActive(int id) throws InterruptedException;
 }

@@ -11,10 +11,7 @@ import uk.ac.ncl.cs.zequn.entity.ActiveEntity;
 import uk.ac.ncl.cs.zequn.entity.AggregationCreationEntity;
 import uk.ac.ncl.cs.zequn.entity.Index;
 import uk.ac.ncl.cs.zequn.entity.Result;
-import uk.ac.ncl.cs.zequn.service.MapperService;
-import uk.ac.ncl.cs.zequn.service.Streamer;
-import uk.ac.ncl.cs.zequn.service.UrlBuilder;
-import uk.ac.ncl.cs.zequn.service.WorkerService;
+import uk.ac.ncl.cs.zequn.service.*;
 import uk.ac.ncl.cs.zequn.service.impl.MapperServiceImpl;
 import uk.ac.ncl.cs.zequn.service.impl.WorkerServiceImpl;
 
@@ -43,10 +40,14 @@ public class WorkerController implements WorkerListener {
     private Streamer streamer;
     @Autowired
     private WorkerService workerService;
+    @Autowired
+    private InstanceService instanceService;
+
     @RequestMapping(value = "register/{url}")
     @ResponseBody
     public int register(@PathVariable String url){
         int id = service.register("Http://"+url);
+        workerService.newInstanceStatus(id);
         logger.info(id+"");
         return id;
     }
@@ -78,9 +79,9 @@ public class WorkerController implements WorkerListener {
         return 1;
     }
 
-    @RequestMapping(value = "initWorker/{slice}/{range}")
+    @RequestMapping(value = "initWorker/{slice}/{range}/{agg}/{aggId}")
     @ResponseBody
-    public int initWorker(@PathVariable int slice,@PathVariable int range){
+    public int initWorker(@PathVariable int slice,@PathVariable int range,@PathVariable String agg,@PathVariable int aggId){
         logger.info("initWorker");
         List<String> map = service.getMapper();
         //init
@@ -103,13 +104,23 @@ public class WorkerController implements WorkerListener {
             entity.setId(0);
             entity.setRange(range);
             entity.setSlice(slice);
-            entity.setAggStrategy("AVG");
-            restTemplate.postForEntity(UrlBuilder.getCreateAggUlr(s),entity,null);
+            entity.setAggStrategy(agg);
+            entity.setAggServiceId(aggId);
+            restTemplate.postForEntity(UrlBuilder.getCreateAggUlr(s), entity, null);
             //start server
             restTemplate.getForObject(UrlBuilder.getStartUrl(s),Integer.class);
             count++;
         }
         return count;
+    }
+    @RequestMapping(value = "autoInitWorker")
+    @ResponseBody
+    public int autoInitWorker(){
+        for (int i = 0; i < 10; i++) {
+           initWorker(1000,10000,"AVG1",i);
+            initWorker(1000,10000,"AVG2",i);
+        }
+        return 1;
     }
 
     @RequestMapping(value = "startStream")
@@ -128,12 +139,26 @@ public class WorkerController implements WorkerListener {
             entity.setIndex(index);
             entity.setResult(null);
             restTemplate.postForEntity(UrlBuilder.getActiveUrl(map.get(0)),entity,null);
-            workerService.start(service.getMapper(),this);
             logger.info("startStream "+currentId+":"+current);
 
             new Thread(new Td()).start();
         }
     }
+    @RequestMapping(value = "init")
+    @ResponseBody
+    public int init(){
+        instanceService.createNewInstance();
+        workerService.start(this);
+        return 1;
+    }
+
+    @RequestMapping(value = "updateStatus/{id}/{status}")
+    @ResponseBody
+    public void updateStatus(@PathVariable int id,@PathVariable double status){
+        workerService.updateStatus(id,status);
+        logger.info("status"+id+" :"+status);
+    }
+
     private void stream(){
         if(flag){
             flag = false;
@@ -153,7 +178,32 @@ public class WorkerController implements WorkerListener {
 //    }
 
     @Override
+    public void changeActive(int id) throws InterruptedException {
+        if(service.getMapper().size() == 1){
+            return;
+        }
+        logger.info("beforeChange "+currentId+":"+current);
+        String oldUrl = current;
+        String newUrl ;
+        if(id >= service.getMapper().size()){
+            throw new IllegalArgumentException();
+        }else {
+            newUrl = service.getMapper().get(id);
+            currentId = id;
+        }
+        String urlA = UrlBuilder.getStopActiveUrl(oldUrl);
+        String urlB = UrlBuilder.getActiveUrl(newUrl);
+        this.stream();
+        ActiveEntity entity = restTemplate.getForObject(urlA,ActiveEntity.class);
+        int re = restTemplate.postForObject(urlB,entity,Integer.class);
+        current = newUrl;
+        logger.info("afterChange "+currentId+":"+current);
+        this.stream();
+    }
     public void changeActive() throws InterruptedException {
+        if(service.getMapper().size() == 1){
+            return;
+        }
         logger.info("beforeChange "+currentId+":"+current);
         String oldUrl = current;
         String newUrl ;

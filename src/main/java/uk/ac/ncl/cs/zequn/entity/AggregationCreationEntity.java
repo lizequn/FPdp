@@ -1,7 +1,5 @@
 package uk.ac.ncl.cs.zequn.entity;
 
-import java.util.LinkedList;
-
 /**
  * Created by zequnli on 30/06/2014.
  */
@@ -10,6 +8,15 @@ public class AggregationCreationEntity {
     private int slice;
     private int range;
     private String aggStrategy;
+    private int aggServiceId;
+
+    public int getAggServiceId() {
+        return aggServiceId;
+    }
+
+    public void setAggServiceId(int aggServiceId) {
+        this.aggServiceId = aggServiceId;
+    }
 
     public int getId() {
         return id;
