@@ -148,9 +148,9 @@ public class WorkerController implements WorkerListener {
             count++;
             restTemplate.postForObject(UrlBuilder.getMappingUrl(s),service.getMapper(),Integer.class);
         }
-        for (int i = 0; i < 10; i++) {
-            initWorkerSingle(i,1000,10000,"AVG1",i);
-            initWorkerSingle(i+10,1000,10000,"AVG2",i);
+        for (int i = 0; i < 50; i++) {
+            initWorkerSingle(i,1000,300000,"AVG1",i);
+            initWorkerSingle(i+50,1000,300000,"AVG2",i);
         }
         for(String s:service.getMapper()){
             restTemplate.getForObject(UrlBuilder.getStartUrl(s),Integer.class);

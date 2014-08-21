@@ -63,10 +63,30 @@ public class WorkerServiceImpl implements WorkerService {
             }
         }
     }
+    private void analyseWithoutNewIns(int id,double status) throws InterruptedException {
+        if(status<50.0){
+            double max = 0;
+            int pos = -1;
+            for(int i =0 ;i<statusList.size();i++){
+                if(statusList.get(i)>max){
+                    max = statusList.get(i);
+                    pos = i;
+                }
+            }
+            if(pos != id){
+                listener.changeActive(pos);
+            }
+        }
+    }
 
     @Override
     public void updateStatus(int i, double status) {
         statusList.set(i,status);
+        try {
+            analyseWithoutNewIns(i,status);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 //        try {
 //            analyse(i,status);
 //        } catch (InterruptedException e) {
